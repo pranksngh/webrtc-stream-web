@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import AgoraRTC from 'agora-rtc-sdk-ng';
 
-const APP_ID = '8c0ee362a4e7470cbbe167399223aa13'; // Replace with your Agora App ID
-const TOKEN = '007eJxTYGi7uF2ppP6W2v611dcWPRSqvrz7tbi78q2PO7+veRn07pafAoNFskFqqrGZUaJJqrmJuUFyUlKqoZm5saWlkZFxYqKhcfae9WkNgYwMr7axMTIyQCCIz8pgaGRsYsrAAACcRiK6'; // Replace with your token or set to null if not using tokens
+const APP_ID = 'YOUR_APP_ID'; // Replace with your Agora App ID
+const TOKEN = null; // Replace with your token or set to null if not using tokens
 
 const LiveStreaming = () => {
   const [client, setClient] = useState(null);
@@ -10,6 +10,7 @@ const LiveStreaming = () => {
   const [joined, setJoined] = useState(false);
   const [roomID, setRoomID] = useState('');
   const [username, setUsername] = useState('');
+  const [isHost, setIsHost] = useState(false); // Add state to track if the user is a host
 
   useEffect(() => {
     const rtcClient = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
@@ -37,20 +38,26 @@ const LiveStreaming = () => {
     }
 
     try {
+      // Set the role based on the isHost state
+      client.setClientRole(isHost ? 'host' : 'audience');
+
       // Join the channel
       await client.join(APP_ID, roomID, TOKEN, username);
 
-      // Create local tracks (audio and video)
-      const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+      if (isHost) {
+        // Create local tracks (audio and video) only if the user is a host
+        const [audioTrack, videoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
 
-      // Publish local tracks to the channel
-      await client.publish([audioTrack, videoTrack]);
+        // Publish local tracks to the channel
+        await client.publish([audioTrack, videoTrack]);
 
-      setLocalTracks({ videoTrack, audioTrack });
+        setLocalTracks({ videoTrack, audioTrack });
+
+        // Display the local stream in a div with id 'local-stream'
+        videoTrack.play('local-stream');
+      }
+
       setJoined(true);
-
-      // Display the local stream in a div with id 'local-stream'
-      videoTrack.play('local-stream');
     } catch (error) {
       console.error('Failed to join the channel', error);
     }
@@ -73,12 +80,20 @@ const LiveStreaming = () => {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
           />
+          <label>
+            <input
+              type="checkbox"
+              checked={isHost}
+              onChange={() => setIsHost(!isHost)}
+            />
+            Join as Host
+          </label>
           <button onClick={handleJoin}>Start Stream</button>
         </div>
       ) : (
         <div>
-          <p>Streaming in Room: {roomID} as {username}</p>
-          <div id="local-stream" style={{ width: '640px', height: '480px', backgroundColor: '#000' }}></div>
+          <p>Streaming in Room: {roomID} as {username} ({isHost ? 'Host' : 'Audience'})</p>
+          {isHost && <div id="local-stream" style={{ width: '640px', height: '480px', backgroundColor: '#000' }}></div>}
         </div>
       )}
     </div>
